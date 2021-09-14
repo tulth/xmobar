@@ -140,6 +140,7 @@ library
                    Xmobar.Plugins.Date,
                    Xmobar.Plugins.EWMH,
                    Xmobar.Plugins.HandleReader,
+                   Xmobar.Plugins.QueueReader,
                    Xmobar.Plugins.PipeReader,
                    Xmobar.Plugins.MarqueePipeReader,
                    Xmobar.Plugins.StdinReader,

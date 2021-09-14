@@ -33,6 +33,7 @@ module Xmobar (xmobar
 #endif
               , module Xmobar.Plugins.EWMH
               , module Xmobar.Plugins.HandleReader
+              , module Xmobar.Plugins.QueueReader
               , module Xmobar.Plugins.Kbd
               , module Xmobar.Plugins.Locks
 #ifdef INOTIFY
@@ -60,6 +61,7 @@ import Xmobar.Plugins.DateZone
 #endif
 import Xmobar.Plugins.EWMH
 import Xmobar.Plugins.HandleReader
+import Xmobar.Plugins.QueueReader
 import Xmobar.Plugins.Kbd
 import Xmobar.Plugins.Locks
 #ifdef INOTIFY
