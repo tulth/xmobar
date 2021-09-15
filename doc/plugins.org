@@ -1436,6 +1436,50 @@ choice.
      hPutStr writeHandle "Hello World"
    #+end_src
 
+** Software Transactional Memory
+
+When invoking xmobar from other Haskell code it can be easier and
+more performant to use shared memory.  The following plugins leverage
+=Control.Concurrent.STM= to realize these gains for xmobar.
+
+*** =QueueReader (TQueue a) (a -> String) String=
+
+ - Display data from a Haskell =TQueue a=.
+
+ - This plugin is only useful if you are running xmobar from another
+   haskell program like xmonad.
+
+ - You should make an =IO= safe =TQueue a= with =Control.Concurrent.STM.newTQueueIO=.
+   Write to it from the user code with =writeTQueue=, and read with =readTQueue=.
+   A common use is to overwite =ppOutput= from =XMonad.Hooks.DynamicLog= as shown
+   below.
+
+   #+begin_src haskell
+     main :: IO ()
+     main = do
+       q <- STM.newTQueueIO @String
+       bar <- forkIO $ xmobar myConf
+         { commands = Run (QueueReader q id "XMonadLog") : commands myConf }
+       xmonad $ def { logHook = logWorkspacesToQueue q }
+
+     logWorkspacesToQueue :: STM.TQueue String -> X ()
+     logWorkspacesToQueue q =
+       dynamicLogWithPP def { ppOutput = STM.atomically . STM.writeTQueue q }
+       where
+         -- Manage the PrettyPrinting configuration here.
+         ppLayout' :: String -> String
+         ppLayout' "Spacing Tall"        = xpm "layout-spacing-tall"
+         ppLayout' "Spacing Mirror Tall" = xpm "layout-spacing-mirror"
+         ppLayout' "Spacing Full"        = xpm "layout-full"
+         ppLayout' x = x
+
+         icon :: String -> String
+         icon path = "<icon=" ++ path ++ "/>"
+
+         xpm :: String -> String
+         xpm = icon . (++ ".xpm")
+   #+end_src
+
 * Executing External Commands
 
 In order to execute an external command you can either write the command
