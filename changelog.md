@@ -1,4 +1,10 @@
-## Version 0.39 (unreleased)
+## Version 0.40 (unreleased)
+
+_New features_
+
+  - New plugin: `QueueReader` (Guy Gastineau).
+
+## Version 0.39 (Aug, 2021)
 
 _New features_
 

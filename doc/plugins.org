@@ -1,35 +1,37 @@
 * System Monitor Plugins
 
-This is the description of the system monitor plugins available in
-xmobar. Some of them are only installed when an optional build option is
-set: we mention that fact, when needed, in their description.
+  This is the description of the system monitor plugins available in
+  xmobar. Some of them are only installed when an optional build
+  option is set: we mention that fact, when needed, in their
+  description.
 
-Each monitor has an =alias= to be used in the output template. Monitors
-may have default aliases, see the documentation of the monitor in
-question.
+  Each monitor has an =alias= to be used in the output
+  template. Monitors may have default aliases, see the documentation
+  of the monitor in question.
 
-There are two types of arguments: ones that all monitors share (the so
-called /default monitor arguments/) and arguments that are specific to a
-certain monitor.
+  There are two types of arguments: ones that all monitors share (the
+  so called /default monitor arguments/) and arguments that are specific
+  to a certain monitor.
 
-All Monitors accept a common set of arguments, described below in
-[[Default Monitor Arguments]]. Some monitors also accept additional options
-that are specific to them. When specifying the list of arguments in your
-configuration, the common options come first, followed by =--=, followed
-by any monitor-specific options. For example, the following [[=Battery Args RefreshRate=][Battery]]
-configuration first sets the global =template= and =Low= arguments and
-then specifies the battery-specific =off= option.
+  All Monitors accept a common set of arguments, described below in
+  [[Default Monitor Arguments]]. Some monitors also accept additional
+  options that are specific to them. When specifying the list of
+  arguments in your configuration, the common options come first,
+  followed by =--=, followed by any monitor-specific options. For
+  example, the following [[=Battery Args RefreshRate=][Battery]] configuration first sets the global
+  =template= and =Low= arguments and then specifies the battery-specific
+  =off= option.
 
-#+begin_src haskell
-  Run Battery
-    [ "--template", "<acstatus>"
-    , "--Low"     , "15"
-    -- battery specific options start here.
-    , "--"
-    , "--off"     , "<left> (<timeleft>)"
-    ]
-    100
-#+end_src
+  #+begin_src haskell
+    Run Battery
+      [ "--template", "<acstatus>"
+      , "--Low"     , "15"
+      -- battery specific options start here.
+      , "--"
+      , "--off"     , "<left> (<timeleft>)"
+      ]
+      100
+  #+end_src
 
 ** Icon Patterns
 
@@ -1260,8 +1262,8 @@ something like:
 
 * Interfacing with Window Managers
 
-Listed below are ways to interface xmobar with your window manager of
-choice.
+  Listed below are ways to interface xmobar with your window manager
+  of choice.
 
 ** Property-based Logging
 *** =XMonadLog=
@@ -1438,9 +1440,9 @@ choice.
 
 ** Software Transactional Memory
 
-When invoking xmobar from other Haskell code it can be easier and
-more performant to use shared memory.  The following plugins leverage
-=Control.Concurrent.STM= to realize these gains for xmobar.
+   When invoking xmobar from other Haskell code it can be easier and
+   more performant to use shared memory.  The following plugins
+   leverage =Control.Concurrent.STM= to realize these gains for xmobar.
 
 *** =QueueReader (TQueue a) (a -> String) String=
 
@@ -1482,69 +1484,70 @@ more performant to use shared memory.  The following plugins leverage
 
 * Executing External Commands
 
-In order to execute an external command you can either write the command
-name in the template, in this case it will be executed without
-arguments, or you can configure it in the "commands" configuration
-option list with the Com template command:
+  In order to execute an external command you can either write the
+  command name in the template, in this case it will be executed
+  without arguments, or you can configure it in the "commands"
+  configuration option list with the Com template command:
 
-=Com ProgramName Args Alias RefreshRate=
+  =Com ProgramName Args Alias RefreshRate=
 
-- ProgramName: the name of the program
-- Args: the arguments to be passed to the program at execution time
-- RefreshRate: number of tenths of second between re-runs of the
-  command. A zero or negative rate means that the command will be
-  executed only once.
-- Alias: a name to be used in the template. If the alias is en empty
-  string the program name can be used in the template.
+  - ProgramName: the name of the program
+  - Args: the arguments to be passed to the program at execution time
+  - RefreshRate: number of tenths of second between re-runs of the
+    command. A zero or negative rate means that the command will be
+    executed only once.
+  - Alias: a name to be used in the template. If the alias is en empty
+    string the program name can be used in the template.
 
-E.g.:
+  E.g.:
 
-#+begin_src haskell
-  Run Com "uname" ["-s","-r"] "" 0
-#+end_src
+  #+begin_src haskell
+    Run Com "uname" ["-s","-r"] "" 0
+  #+end_src
 
-can be used in the output template as =%uname%= (and xmobar will call
-/uname/ only once), while
+  can be used in the output template as =%uname%= (and xmobar will call
+  /uname/ only once), while
 
-#+begin_src haskell
-  Run Com "date" ["+\"%a %b %_d %H:%M\""] "mydate" 600
-#+end_src
+  #+begin_src haskell
+    Run Com "date" ["+\"%a %b %_d %H:%M\""] "mydate" 600
+  #+end_src
 
-can be used in the output template as =%mydate%=.
+  can be used in the output template as =%mydate%=.
 
-Sometimes, you don't mind if the command executed exits with an error,
-or you might want to display a custom message in that case. To that end,
-you can use the =ComX= variant:
+  Sometimes, you don't mind if the command executed exits with an
+  error, or you might want to display a custom message in that
+  case. To that end, you can use the =ComX= variant:
 
-=ComX ProgramName Args ExitMessage Alias RefreshRate=
+    =ComX ProgramName Args ExitMessage Alias RefreshRate=
 
-Works like =Com=, but displaying =ExitMessage= (a string) if the
-execution fails. For instance:
+  Works like =Com=, but displaying =ExitMessage= (a string) if the
+  execution fails. For instance:
 
-#+begin_src haskell
-  Run ComX "date" ["+\"%a %b %_d %H:%M\""] "N/A" "mydate" 600
-#+end_src
+  #+begin_src haskell
+    Run ComX "date" ["+\"%a %b %_d %H:%M\""] "N/A" "mydate" 600
+  #+end_src
 
-will display "N/A" if for some reason the =date= invocation fails.
+  will display "N/A" if for some reason the =date= invocation fails.
 
 * The DBus Interface
 
-When compiled with the optional =with_dbus= flag, xmobar can be
-controlled over dbus. All signals defined in [[https://github.com/jaor/xmobar/blob/master/src/Xmobar/System/Signal.hs][src/Signal.hs]] as =data
-SignalType= can now be sent over dbus to xmobar. Due to current
-limitations of the implementation only one process of xmobar can acquire
-the dbus. This is handled on a first-come-first-served basis, meaning
-that the first process will get the dbus interface. Other processes will
-run without further problems, yet have no dbus interface.
+  When compiled with the optional =with_dbus= flag, xmobar can be
+  controlled over dbus. All signals defined in [[https://github.com/jaor/xmobar/blob/master/src/Xmobar/System/Signal.hs][src/Signal.hs]] as =data
+  SignalType= can now be sent over dbus to xmobar. Due to current
+  limitations of the implementation only one process of xmobar can
+  acquire the dbus. This is handled on a first-come-first-served
+  basis, meaning that the first process will get the dbus
+  interface. Other processes will run without further problems, yet
+  have no dbus interface.
 
-- Bus Name: =org.Xmobar.Control=
-- Object Path: =/org/Xmobar/Control=
-- Member Name: Any of SignalType, e.g. =string:Reveal=
-- Interface Name: =org.Xmobar.Control=
+  - Bus Name: =org.Xmobar.Control=
+  - Object Path: =/org/Xmobar/Control=
+  - Member Name: Any of SignalType, e.g. =string:Reveal=
+  - Interface Name: =org.Xmobar.Control=
 
-An example using the =dbus-send= command line utility:
+  An example using the =dbus-send= command line utility:
 
-#+begin_src shell
+  #+begin_src shell
   dbus-send \
       --session \
       --dest=org.Xmobar.Control \
@@ -1553,82 +1556,82 @@ An example using the =dbus-send= command line utility:
       '/org/Xmobar/Control' \
       org.Xmobar.Control.SendSignal \
       "string:Toggle 0"
-#+end_src
+  #+end_src
 
-It is also possible to send multiple signals at once:
+  It is also possible to send multiple signals at once:
 
-#+begin_src shell
-  # send to another screen, reveal and toggle the persistent flag
-  dbus-send [..] \
-      "string:ChangeScreen 0" "string:Reveal 0" "string:TogglePersistent"
-#+end_src
+  #+begin_src shell
+    # send to another screen, reveal and toggle the persistent flag
+    dbus-send [..] \
+        "string:ChangeScreen 0" "string:Reveal 0" "string:TogglePersistent"
+  #+end_src
 
-The =Toggle=, =Reveal=, and =Hide= signals take an additional integer
-argument that denotes an initial delay, in tenths of a second, before
-the command takes effect.
+  The =Toggle=, =Reveal=, and =Hide= signals take an additional integer
+  argument that denotes an initial delay, in tenths of a second,
+  before the command takes effect.
 
 ** Example for using the DBus IPC interface with XMonad
 
-Bind the key which should {,un}map xmobar to a dummy value. This is
-necessary for {,un}grabKey in xmonad.
+   Bind the key which should {,un}map xmobar to a dummy value. This is
+   necessary for {,un}grabKey in xmonad.
 
-#+begin_src haskell
-  ((0, xK_Alt_L), pure ())
-#+end_src
+   #+begin_src haskell
+     ((0, xK_Alt_L), pure ())
+   #+end_src
 
-Also, install =avoidStruts= layout modifier from
-=XMonad.Hooks.ManageDocks=
+   Also, install =avoidStruts= layout modifier from
+   =XMonad.Hooks.ManageDocks=
 
-Finally, install these two event hooks (=handleEventHook= in =XConfig=)
-=myDocksEventHook= is a replacement for =docksEventHook= which reacts on
-unmap events as well (which =docksEventHook= doesn't).
+   Finally, install these two event hooks (=handleEventHook= in =XConfig=)
+   =myDocksEventHook= is a replacement for =docksEventHook= which reacts
+   on unmap events as well (which =docksEventHook= doesn't).
 
-#+begin_src haskell
-  import qualified XMonad.Util.ExtensibleState as XS
+   #+begin_src haskell
+     import qualified XMonad.Util.ExtensibleState as XS
 
-  data DockToggleTime = DTT { lastTime :: Time } deriving (Eq, Show, Typeable)
+     data DockToggleTime = DTT { lastTime :: Time } deriving (Eq, Show, Typeable)
 
-  instance ExtensionClass DockToggleTime where
-      initialValue = DTT 0
+     instance ExtensionClass DockToggleTime where
+         initialValue = DTT 0
 
-  toggleDocksHook :: Int -> KeySym -> Event -> X All
-  toggleDocksHook to ks ( KeyEvent { ev_event_display = d
-                                  , ev_event_type    = et
-                                  , ev_keycode       = ekc
-                                  , ev_time          = etime
-                                  } ) =
-          io (keysymToKeycode d ks) >>= toggleDocks >> return (All True)
-      where
-      toggleDocks kc
-          | ekc == kc && et == keyPress = do
-              safeSendSignal ["Reveal 0", "TogglePersistent"]
-              XS.put ( DTT etime )
-          | ekc == kc && et == keyRelease = do
-              gap <- XS.gets ( (-) etime . lastTime )
-              safeSendSignal [ "TogglePersistent"
-                          , "Hide " ++ show (if gap < 400 then to else 0)
-                          ]
-          | otherwise = return ()
+     toggleDocksHook :: Int -> KeySym -> Event -> X All
+     toggleDocksHook to ks ( KeyEvent { ev_event_display = d
+                                     , ev_event_type    = et
+                                     , ev_keycode       = ekc
+                                     , ev_time          = etime
+                                     } ) =
+             io (keysymToKeycode d ks) >>= toggleDocks >> return (All True)
+         where
+         toggleDocks kc
+             | ekc == kc && et == keyPress = do
+                 safeSendSignal ["Reveal 0", "TogglePersistent"]
+                 XS.put ( DTT etime )
+             | ekc == kc && et == keyRelease = do
+                 gap <- XS.gets ( (-) etime . lastTime )
+                 safeSendSignal [ "TogglePersistent"
+                             , "Hide " ++ show (if gap < 400 then to else 0)
+                             ]
+             | otherwise = return ()
 
-      safeSendSignal s = catchX (io $ sendSignal s) (return ())
-      sendSignal    = withSession . callSignal
-      withSession mc = connectSession >>= \c -> callNoReply c mc >> disconnect c
-      callSignal :: [String] -> MethodCall
-      callSignal s = ( methodCall
-                      ( objectPath_    "/org/Xmobar/Control" )
-                      ( interfaceName_ "org.Xmobar.Control"  )
-                      ( memberName_    "SendSignal"          )
-                  ) { methodCallDestination = Just $ busName_ "org.Xmobar.Control"
-                      , methodCallBody        = map toVariant s
-                      }
+         safeSendSignal s = catchX (io $ sendSignal s) (return ())
+         sendSignal    = withSession . callSignal
+         withSession mc = connectSession >>= \c -> callNoReply c mc >> disconnect c
+         callSignal :: [String] -> MethodCall
+         callSignal s = ( methodCall
+                         ( objectPath_    "/org/Xmobar/Control" )
+                         ( interfaceName_ "org.Xmobar.Control"  )
+                         ( memberName_    "SendSignal"          )
+                     ) { methodCallDestination = Just $ busName_ "org.Xmobar.Control"
+                         , methodCallBody        = map toVariant s
+                         }
 
-  toggleDocksHook _ _ _ = return (All True)
+     toggleDocksHook _ _ _ = return (All True)
 
-  myDocksEventHook :: Event -> X All
-  myDocksEventHook e = do
-      when (et == mapNotify || et == unmapNotify) $
-          whenX ((not `fmap` (isClient w)) <&&> runQuery checkDock w) refresh
-      return (All True)
-      where w  = ev_window e
-          et = ev_event_type e
-#+end_src
+     myDocksEventHook :: Event -> X All
+     myDocksEventHook e = do
+         when (et == mapNotify || et == unmapNotify) $
+             whenX ((not `fmap` (isClient w)) <&&> runQuery checkDock w) refresh
+         return (All True)
+         where w  = ev_window e
+             et = ev_event_type e
+   #+end_src
