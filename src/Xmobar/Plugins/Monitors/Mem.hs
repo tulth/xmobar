@@ -1,3 +1,4 @@
+{-#LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Plugins.Monitors.Mem
@@ -15,8 +16,12 @@
 module Xmobar.Plugins.Monitors.Mem (memConfig, runMem, totalMem, usedMem) where
 
 import Xmobar.Plugins.Monitors.Common
-import qualified Data.Map as M
 import System.Console.GetOpt
+#ifdef FREEBSD
+import System.BSD.Sysctl (sysctlReadUInt)
+#else
+import qualified Data.Map as M
+#endif
 
 data MemOpts = MemOpts
   { usedIconPattern :: Maybe IconPattern
@@ -49,6 +54,36 @@ memConfig = mkMConfig
         "usedratio", "freeratio", "availableratio",
         "total", "free", "buffer", "cache", "available", "used"] -- available replacements
 
+#ifdef FREEBSD
+parseMEM :: IO [Float]
+parseMEM = do stats <- mapM sysctlReadUInt [
+                "vm.stats.vm.v_page_size"
+                , "vm.stats.vm.v_page_count"
+                , "vm.stats.vm.v_free_count"
+                , "vm.stats.vm.v_active_count"
+                , "vm.stats.vm.v_inactive_count"
+                , "vm.stats.vm.v_wire_count"
+                , "vm.stats.vm.v_cache_count"]
+
+              let [ pagesize, totalpages, freepages, activepages, inactivepages, wiredpages, cachedpages ] = fmap fromIntegral stats
+                  usedpages = activepages + wiredpages + cachedpages
+                  availablepages = inactivepages + cachedpages + freepages
+                  bufferedpages = activepages + inactivepages + wiredpages
+
+                  available = availablepages * pagesize
+                  used = usedpages * pagesize
+                  free = freepages * pagesize
+                  cache = cachedpages * pagesize
+                  buffer = bufferedpages * pagesize
+                  total = totalpages * pagesize
+
+                  usedratio = usedpages / totalpages
+                  freeratio = freepages / totalpages
+                  availableratio = availablepages / totalpages
+
+              return [usedratio, freeratio, availableratio, total, free, buffer, cache, available, used]
+
+#else
 fileMEM :: IO String
 fileMEM = readFile "/proc/meminfo"
 
@@ -64,6 +99,7 @@ parseMEM =
            freeratio = free / total
            availableratio = available / total
        return [usedratio, freeratio, availableratio, total, free, buffer, cache, available, used]
+#endif
 
 totalMem :: IO Float
 totalMem = fmap ((*1024) . (!!1)) parseMEM
