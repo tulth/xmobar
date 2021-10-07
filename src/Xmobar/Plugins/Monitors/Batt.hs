@@ -17,44 +17,18 @@
 
 module Xmobar.Plugins.Monitors.Batt ( battConfig, runBatt, runBatt' ) where
 
-import System.Process (system)
-import Control.Monad (void, unless)
+import Xmobar.Plugins.Monitors.Batt.Common (BattOpts(..)
+                                           , Result(..)
+                                           , Status(..))
 import Xmobar.Plugins.Monitors.Common
-import Control.Exception (SomeException, handle)
-import System.FilePath ((</>))
-import System.IO (IOMode(ReadMode), hGetLine, withFile)
-import System.Posix.Files (fileExist)
-#ifdef FREEBSD
-import System.BSD.Sysctl (sysctlReadInt)
-#endif
 import System.Console.GetOpt
-import Data.List (sort, sortBy, group)
-import Data.Maybe (fromMaybe)
-import Data.Ord (comparing)
-import Text.Read (readMaybe)
 
-data BattOpts = BattOpts
-  { onString :: String
-  , offString :: String
-  , idleString :: String
-  , posColor :: Maybe String
-  , lowWColor :: Maybe String
-  , mediumWColor :: Maybe String
-  , highWColor :: Maybe String
-  , lowThreshold :: Float
-  , highThreshold :: Float
-  , onLowAction :: Maybe String
-  , actionThreshold :: Float
-  , onlineFile :: FilePath
-  , scale :: Float
-  , onIconPattern :: Maybe IconPattern
-  , offIconPattern :: Maybe IconPattern
-  , idleIconPattern :: Maybe IconPattern
-  , lowString :: String
-  , mediumString :: String
-  , highString :: String
-  , incPerc :: Bool
-  }
+#if defined(freebsd_HOST_OS)
+import qualified Xmobar.Plugins.Monitors.Batt.FreeBSD as MB
+#else
+import qualified Xmobar.Plugins.Monitors.Batt.Linux as MB
+#endif
+
 
 defaultOpts :: BattOpts
 defaultOpts = BattOpts
@@ -108,33 +82,10 @@ options =
   , Option "" ["highs"] (ReqArg (\x o -> o { highString = x }) "") ""
   ]
 
-data Status = Charging | Discharging | Full | Idle | Unknown deriving (Read, Eq)
--- Result perc watts time-seconds Status
-data Result = Result Float Float Float Status | NA
-
-sysDir :: FilePath
-sysDir = "/sys/class/power_supply"
-
 battConfig :: IO MConfig
 battConfig = mkMConfig
        "Batt: <watts>, <left>% / <timeleft>" -- template
        ["leftbar", "leftvbar", "left", "acstatus", "timeleft", "watts", "leftipat"] -- replacements
-
-data Files = Files
-  { fFull :: String
-  , fNow :: String
-  , fVoltage :: String
-  , fCurrent :: String
-  , fStatus :: String
-  , isCurrent :: Bool
-  } | NoFiles deriving Eq
-
-data Battery = Battery
-  { full :: !Float
-  , now :: !Float
-  , power :: !Float
-  , status :: !String
-  }
 
 data BatteryStatus
   = BattHigh
@@ -153,130 +104,13 @@ getBattStatus charge opts
  where
    c = 100 * min 1 charge
 
-maybeAlert :: BattOpts -> Float -> IO ()
-maybeAlert opts left =
-  case onLowAction opts of
-    Nothing -> return ()
-    Just x -> unless (isNaN left || actionThreshold opts < 100 * left)
-                $ void $ system x
-
--- | FreeBSD battery query
-#ifdef FREEBSD
-battStatusFbsd :: Int -> Status
-battStatusFbsd x
-  | x == 1 = Discharging
-  | x == 2 = Charging
-  | otherwise = Unknown
-
-readBatteriesFbsd :: BattOpts -> IO Result
-readBatteriesFbsd opts = do
-  lf <- sysctlReadInt "hw.acpi.battery.life"
-  rt <- sysctlReadInt "hw.acpi.battery.rate"
-  tm <- sysctlReadInt "hw.acpi.battery.time"
-  st <- sysctlReadInt "hw.acpi.battery.state"
-  acline <- sysctlReadInt "hw.acpi.acline"
-  let p = fromIntegral lf / 100
-      w = fromIntegral rt
-      t = fromIntegral tm * 60
-      ac = acline == 1
-      -- battery full when rate is 0 and on ac.
-      sts = if (w == 0 && ac) then Full else (battStatusFbsd $ fromIntegral st)
-  unless ac (maybeAlert opts p)
-  return (Result p w t sts)
-
-#else
--- | query linux battery
-safeFileExist :: String -> String -> IO Bool
-safeFileExist d f = handle noErrors $ fileExist (d </> f)
-  where noErrors = const (return False) :: SomeException -> IO Bool
-
-batteryFiles :: String -> IO Files
-batteryFiles bat =
-  do is_charge <- exists "charge_now"
-     is_energy <- if is_charge then return False else exists "energy_now"
-     is_power <- exists "power_now"
-     plain <- exists (if is_charge then "charge_full" else "energy_full")
-     let cf = if is_power then "power_now" else "current_now"
-         sf = if plain then "" else "_design"
-     return $ case (is_charge, is_energy) of
-       (True, _) -> files "charge" cf sf is_power
-       (_, True) -> files "energy" cf sf is_power
-       _ -> NoFiles
-  where prefix = sysDir </> bat
-        exists = safeFileExist prefix
-        files ch cf sf ip = Files { fFull = prefix </> ch ++ "_full" ++ sf
-                                  , fNow = prefix </> ch ++ "_now"
-                                  , fCurrent = prefix </> cf
-                                  , fVoltage = prefix </> "voltage_now"
-                                  , fStatus = prefix </> "status"
-                                  , isCurrent = not ip}
-
-haveAc :: FilePath -> IO Bool
-haveAc f =
-  handle onError $ withFile (sysDir </> f) ReadMode (fmap (== "1") . hGetLine)
-  where onError = const (return False) :: SomeException -> IO Bool
-
-readBattery :: Float -> Files -> IO Battery
-readBattery _ NoFiles = return $ Battery 0 0 0 "Unknown"
-readBattery sc files =
-    do a <- grab $ fFull files
-       b <- grab $ fNow files
-       d <- grab $ fCurrent files
-       s <- grabs $ fStatus files
-       let sc' = if isCurrent files then sc / 10 else sc
-           a' = max a b -- sometimes the reported max charge is lower than
-       return $ Battery (3600 * a' / sc') -- wattseconds
-                        (3600 * b / sc') -- wattseconds
-                        (abs d / sc') -- watts
-                        s -- string: Discharging/Charging/Full
-    where grab f = handle onError $ withFile f ReadMode (fmap read . hGetLine)
-          onError = const (return (-1)) :: SomeException -> IO Float
-          grabs f = handle onError' $ withFile f ReadMode hGetLine
-          onError' = const (return "Unknown") :: SomeException -> IO String
-
--- sortOn is only available starting at ghc 7.10
-sortOn :: Ord b => (a -> b) -> [a] -> [a]
-sortOn f =
-  map snd . sortBy (comparing fst) . map (\x -> let y = f x in y `seq` (y, x))
-
-mostCommonDef :: Eq a => a -> [a] -> a
-mostCommonDef x xs = head $ last $ [x] : sortOn length (group xs)
-
-readBatteriesLinux :: BattOpts -> [Files] -> IO Result
-readBatteriesLinux opts bfs =
-    do let bfs' = filter (/= NoFiles) bfs
-       bats <- mapM (readBattery (scale opts)) (take 3 bfs')
-       ac <- haveAc (onlineFile opts)
-       let sign = if ac then 1 else -1
-           ft = sum (map full bats)
-           left = if ft > 0 then sum (map now bats) / ft else 0
-           watts = sign * sum (map power bats)
-           time = if watts == 0 then 0 else max 0 (sum $ map time' bats)
-           mwatts = if watts == 0 then 1 else sign * watts
-           time' b = (if ac then full b - now b else now b) / mwatts
-           statuses :: [Status]
-           statuses = map (fromMaybe Unknown . readMaybe)
-                          (sort (map status bats))
-           acst = mostCommonDef Unknown $ filter (Unknown/=) statuses
-           racst | acst /= Unknown = acst
-                 | time == 0 = Idle
-                 | ac = Charging
-                 | otherwise = Discharging
-       unless ac (maybeAlert opts left)
-       return $ if isNaN left then NA else Result left watts time racst
-#endif
-
 runBatt :: [String] -> Monitor String
 runBatt = runBatt' ["BAT", "BAT0", "BAT1", "BAT2"]
 
 runBatt' :: [String] -> [String] -> Monitor String
 runBatt' bfs args = do
   opts <- io $ parseOptsWith options defaultOpts args
-#ifdef FREEBSD
-  c <- io $ readBatteriesFbsd opts
-#else
-  c <- io $ readBatteriesLinux opts =<< mapM batteryFiles bfs
-#endif
+  c <- io $ MB.readBatteries opts bfs
   formatResult c opts
 
 formatResult :: Result -> BattOpts -> Monitor String

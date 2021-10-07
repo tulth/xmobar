@@ -150,17 +150,20 @@ library
                    Xmobar.Plugins.NotmuchMail,
                    Xmobar.Plugins.Monitors,
                    Xmobar.Plugins.Monitors.Batt,
+                   Xmobar.Plugins.Monitors.Batt.Common,
                    Xmobar.Plugins.Monitors.Common.Output,
                    Xmobar.Plugins.Monitors.Common.Parsers,
                    Xmobar.Plugins.Monitors.Common.Files,
                    Xmobar.Plugins.Monitors.CoreTemp,
                    Xmobar.Plugins.Monitors.K10Temp,
+                   Xmobar.Plugins.Monitors.Cpu.Common,
                    Xmobar.Plugins.Monitors.CpuFreq,
                    Xmobar.Plugins.Monitors.Disk,
                    Xmobar.Plugins.Monitors.Mem,
                    Xmobar.Plugins.Monitors.MultiCoreTemp,
                    Xmobar.Plugins.Monitors.MultiCpu,
                    Xmobar.Plugins.Monitors.Net,
+                   Xmobar.Plugins.Monitors.Net.Common,
                    Xmobar.Plugins.Monitors.Swap,
                    Xmobar.Plugins.Monitors.Thermal,
                    Xmobar.Plugins.Monitors.ThermalZone,
@@ -292,7 +295,17 @@ library
     if os(freebsd)
        -- enables freebsd specific code
        build-depends: bsd-sysctl
-       cpp-options: -DFREEBSD
+       other-modules: Xmobar.Plugins.Monitors.Batt.FreeBSD,
+                      Xmobar.Plugins.Monitors.Cpu.FreeBSD,
+                      Xmobar.Plugins.Monitors.Mem.FreeBSD,
+                      Xmobar.Plugins.Monitors.Net.FreeBSD,
+                      Xmobar.Plugins.Monitors.Swap.FreeBSD
+    else
+       other-modules: Xmobar.Plugins.Monitors.Batt.Linux,
+                      Xmobar.Plugins.Monitors.Cpu.Linux,
+                      Xmobar.Plugins.Monitors.Mem.Linux,
+                      Xmobar.Plugins.Monitors.Net.Linux,
+                      Xmobar.Plugins.Monitors.Swap.Linux
 
 executable xmobar
     default-language:   Haskell2010
@@ -353,6 +366,7 @@ test-suite XmobarTest
                  Xmobar.Plugins.Monitors.Common.Output
                  Xmobar.Plugins.Monitors.Common.Files
                  Xmobar.Plugins.Monitors.Cpu
+                 Xmobar.Plugins.Monitors.Cpu.Common
                  Xmobar.Plugins.Monitors.CpuSpec
                  Xmobar.Plugins.Monitors.Common.Run
                  Xmobar.Run.Exec
@@ -368,6 +382,13 @@ test-suite XmobarTest
                      Xmobar.Plugins.Monitors.AlsaSpec
 
       cpp-options: -DALSA
+
+  if os(freebsd)
+       -- enables freebsd specific code
+      build-depends: bsd-sysctl
+      other-modules: Xmobar.Plugins.Monitors.Cpu.FreeBSD
+  else
+      other-modules: Xmobar.Plugins.Monitors.Cpu.Linux
 
 benchmark xmobarbench
   type: exitcode-stdio-1.0

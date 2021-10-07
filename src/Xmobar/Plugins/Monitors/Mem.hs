@@ -17,11 +17,13 @@ module Xmobar.Plugins.Monitors.Mem (memConfig, runMem, totalMem, usedMem) where
 
 import Xmobar.Plugins.Monitors.Common
 import System.Console.GetOpt
-#ifdef FREEBSD
-import System.BSD.Sysctl (sysctlReadUInt)
+
+#if defined(freebsd_HOST_OS)
+import qualified Xmobar.Plugins.Monitors.Mem.FreeBSD as MM
 #else
-import qualified Data.Map as M
+import qualified Xmobar.Plugins.Monitors.Mem.Linux as MM
 #endif
+
 
 data MemOpts = MemOpts
   { usedIconPattern :: Maybe IconPattern
@@ -54,58 +56,11 @@ memConfig = mkMConfig
         "usedratio", "freeratio", "availableratio",
         "total", "free", "buffer", "cache", "available", "used"] -- available replacements
 
-#ifdef FREEBSD
-parseMEM :: IO [Float]
-parseMEM = do stats <- mapM sysctlReadUInt [
-                "vm.stats.vm.v_page_size"
-                , "vm.stats.vm.v_page_count"
-                , "vm.stats.vm.v_free_count"
-                , "vm.stats.vm.v_active_count"
-                , "vm.stats.vm.v_inactive_count"
-                , "vm.stats.vm.v_wire_count"
-                , "vm.stats.vm.v_cache_count"]
-
-              let [ pagesize, totalpages, freepages, activepages, inactivepages, wiredpages, cachedpages ] = fmap fromIntegral stats
-                  usedpages = activepages + wiredpages + cachedpages
-                  availablepages = inactivepages + cachedpages + freepages
-                  bufferedpages = activepages + inactivepages + wiredpages
-
-                  available = availablepages * pagesize
-                  used = usedpages * pagesize
-                  free = freepages * pagesize
-                  cache = cachedpages * pagesize
-                  buffer = bufferedpages * pagesize
-                  total = totalpages * pagesize
-
-                  usedratio = usedpages / totalpages
-                  freeratio = freepages / totalpages
-                  availableratio = availablepages / totalpages
-
-              return [usedratio, freeratio, availableratio, total, free, buffer, cache, available, used]
-
-#else
-fileMEM :: IO String
-fileMEM = readFile "/proc/meminfo"
-
-parseMEM :: IO [Float]
-parseMEM =
-    do file <- fileMEM
-       let content = map words $ take 8 $ lines file
-           info = M.fromList $ map (\line -> (head line, (read $ line !! 1 :: Float) / 1024)) content
-           [total, free, buffer, cache] = map (info M.!) ["MemTotal:", "MemFree:", "Buffers:", "Cached:"]
-           available = M.findWithDefault (free + buffer + cache) "MemAvailable:" info
-           used = total - available
-           usedratio = used / total
-           freeratio = free / total
-           availableratio = available / total
-       return [usedratio, freeratio, availableratio, total, free, buffer, cache, available, used]
-#endif
-
 totalMem :: IO Float
-totalMem = fmap ((*1024) . (!!1)) parseMEM
+totalMem = fmap ((*1024) . (!!1)) MM.parseMEM
 
 usedMem :: IO Float
-usedMem = fmap ((*1024) . (!!6)) parseMEM
+usedMem = fmap ((*1024) . (!!6)) MM.parseMEM
 
 formatMem :: MemOpts -> [Float] -> Monitor [String]
 formatMem opts (r:fr:ar:xs) =
@@ -120,7 +75,7 @@ formatMem _ _ = replicate 10 `fmap` getConfigValue naString
 
 runMem :: [String] -> Monitor String
 runMem argv =
-    do m <- io parseMEM
+    do m <- io MM.parseMEM
        opts <- io $ parseOptsWith options defaultOpts argv
        l <- formatMem opts m
        parseTemplate l

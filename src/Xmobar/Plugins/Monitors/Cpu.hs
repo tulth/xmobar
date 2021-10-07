@@ -20,22 +20,25 @@ module Xmobar.Plugins.Monitors.Cpu
   ( startCpu
   , runCpu
   , cpuConfig
-  , CpuDataRef
+  , MC.CpuDataRef
   , CpuOpts
   , CpuArguments
-  , parseCpu
+  , MC.parseCpu
   , getArguments
   ) where
 
 import Xmobar.Plugins.Monitors.Common
-import qualified Data.ByteString.Lazy.Char8 as B
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-#ifdef FREEBSD
-import System.BSD.Sysctl (sysctlPeekArray)
-#endif
+import Data.IORef (newIORef)
 import System.Console.GetOpt
 import Xmobar.App.Timer (doEveryTenthSeconds)
 import Control.Monad (void)
+import Xmobar.Plugins.Monitors.Cpu.Common (CpuData(..))
+
+#if defined(freebsd_HOST_OS)
+import qualified Xmobar.Plugins.Monitors.Cpu.FreeBSD as MC
+#else
+import qualified Xmobar.Plugins.Monitors.Cpu.Linux as MC
+#endif
 
 newtype CpuOpts = CpuOpts
   { loadIconPattern :: Maybe IconPattern
@@ -93,83 +96,6 @@ cpuConfig =
     , idleField
     , iowaitField
     ]
-
-data CpuData = CpuData {
-      cpuUser :: !Float,
-      cpuNice :: !Float,
-      cpuSystem :: !Float,
-      cpuIdle :: !Float,
-      cpuIowait :: !Float,
-      cpuTotal :: !Float
-    }
-
-#ifdef FREEBSD
--- kern.cp_time data from the previous iteration for computing the difference
-type CpuDataRef = IORef [Word]
-
-cpuData :: IO [Word]
-cpuData = sysctlPeekArray "kern.cp_time" :: IO [Word]
-
-parseCpu :: CpuDataRef -> IO CpuData
-parseCpu cref = do
-    prev <- readIORef cref
-    curr <- cpuData
-    writeIORef cref curr
-    let diff = map fromIntegral $ zipWith (-) curr prev
-        user = diff !! 0
-        nice = diff !! 1
-        system = diff !! 2
-        intr = diff !! 3
-        idle = diff !! 4
-        total = user + nice + system + intr + idle
-    return CpuData
-      { cpuUser = user/total
-      , cpuNice = nice/total
-      , cpuSystem = (system+intr)/total
-      , cpuIdle = idle/total
-      , cpuIowait = 0
-      , cpuTotal = user/total
-      }
-#else
-type CpuDataRef = IORef [Int]
-
--- Details about the fields here: https://www.kernel.org/doc/Documentation/filesystems/proc.txt
-cpuData :: IO [Int]
-cpuData = cpuParser <$> B.readFile "/proc/stat"
-
-readInt :: B.ByteString -> Int
-readInt bs = case B.readInt bs of
-               Nothing -> 0
-               Just (i, _) -> i
-
-cpuParser :: B.ByteString -> [Int]
-cpuParser = map readInt . tail . B.words . head . B.lines
-
-convertToCpuData :: [Float] -> CpuData
-convertToCpuData (u:n:s:ie:iw:_) =
-  CpuData
-    { cpuUser = u
-    , cpuNice = n
-    , cpuSystem = s
-    , cpuIdle = ie
-    , cpuIowait = iw
-    , cpuTotal = sum [u, n, s]
-    }
-convertToCpuData args = error $ "convertToCpuData: Unexpected list" <> show args
-
-parseCpu :: CpuDataRef -> IO CpuData
-parseCpu cref =
-    do a <- readIORef cref
-       b <- cpuData
-       writeIORef cref b
-       let dif = zipWith (-) b a
-           tot = fromIntegral $ sum dif
-           safeDiv n = case tot of
-                         0 -> 0
-                         v -> fromIntegral n / v
-           percent = map safeDiv dif
-       return $ convertToCpuData percent
-#endif
 
 data Field = Field {
       fieldName :: !String,
@@ -235,7 +161,7 @@ optimizeAllTemplate args@CpuArguments {..} =
 
 data CpuArguments =
   CpuArguments
-    { cpuDataRef :: !CpuDataRef
+    { cpuDataRef :: !MC.CpuDataRef
     , cpuParams :: !MonitorConfig
     , cpuArgs :: ![String]
     , cpuOpts :: !CpuOpts
@@ -247,9 +173,9 @@ data CpuArguments =
 
 getArguments :: [String] -> IO CpuArguments
 getArguments cpuArgs = do
-  initCpuData <- cpuData
+  initCpuData <- MC.cpuData
   cpuDataRef <- newIORef initCpuData
-  void $ parseCpu cpuDataRef
+  void $ MC.parseCpu cpuDataRef
   cpuParams <- computeMonitorConfig cpuArgs cpuConfig
   cpuInputTemplate <- runTemplateParser cpuParams
   cpuAllTemplate <- runExportParser (pExport cpuParams)
@@ -270,7 +196,7 @@ getArguments cpuArgs = do
 
 runCpu :: CpuArguments -> IO String
 runCpu args@CpuArguments {..} = do
-  cpuValue <- parseCpu cpuDataRef
+  cpuValue <- MC.parseCpu cpuDataRef
   temMonitorValues <- formatCpu args cpuValue
   let templateInput =
         TemplateInput
