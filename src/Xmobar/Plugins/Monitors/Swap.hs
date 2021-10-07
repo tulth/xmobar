@@ -1,3 +1,4 @@
+{-#LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Plugins.Monitors.Swap
@@ -16,13 +17,44 @@ module Xmobar.Plugins.Monitors.Swap where
 
 import Xmobar.Plugins.Monitors.Common
 
+#ifdef FREEBSD
+import System.BSD.Sysctl (sysctlReadUInt, sysctlReadULong)
+#else
 import qualified Data.ByteString.Lazy.Char8 as B
+#endif
 
 swapConfig :: IO MConfig
 swapConfig = mkMConfig
         "Swap: <usedratio>%"                    -- template
         ["usedratio", "total", "used", "free"] -- available replacements
 
+#ifdef FREEBSD
+
+isEnabled :: IO Bool
+isEnabled = do
+  enabled <- sysctlReadUInt "vm.swap_enabled"
+  return $ enabled == 1
+
+parseMEM' :: Bool -> IO [Float]
+parseMEM' False = return $ []
+parseMEM' True = do
+  swapIn <- sysctlReadUInt "vm.stats.vm.v_swapin"
+  swapTotal <- sysctlReadULong "vm.swap_total"
+  let tot = toInteger swapTotal
+      free = tot - (toInteger swapIn)
+
+  return $ res (fromInteger tot) (fromInteger free)
+  where
+    res :: Float -> Float -> [Float]
+    res _ 0 = []
+    res tot free = [(tot - free) / tot, tot, tot - free, free]
+
+parseMEM :: IO [Float]
+parseMEM = do
+  enabled <- isEnabled
+  parseMEM' enabled
+
+#else
 fileMEM :: IO B.ByteString
 fileMEM = B.readFile "/proc/meminfo"
 
@@ -40,6 +72,8 @@ parseMEM =
            tot  = get_data "SwapTotal:" st
            free = get_data "SwapFree:" st
        return [(tot - free) / tot, tot, tot - free, free]
+
+#endif
 
 formatSwap :: [Float] -> Monitor [String]
 formatSwap (r:xs) = do
