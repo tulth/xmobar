@@ -7,7 +7,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,3 +54,23 @@ jobs:
         sh ./travis.sh src
     - name: Run tests
       run: cabal test
+
+  # build-freebsd:
+  #   runs-on: macos-latest
+  #   env:
+  #     CONFIG: "--enable-tests --enable-benchmarks -fwith_xft -fwith_mpd"
+
+  #   steps:
+  #   - uses: actions/checkout@v2
+
+  #   - name: Install dependencies
+  #     uses: vmactions/freebsd-vm@v0.1.5
+  #     with:
+  #       usesh: true
+  #       prepare: pkg install -y ghc hs-hlint xorg-libraries hs-cabal-install git autoconf
+  #       run: |
+  #         cabal update
+  #         cabal build --dependencies-only $CONFIG
+  #         cabal build $CONFIG
+  #         hlint
+  #         cabal test

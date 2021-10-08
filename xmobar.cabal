@@ -299,13 +299,15 @@ library
                       Xmobar.Plugins.Monitors.Cpu.FreeBSD,
                       Xmobar.Plugins.Monitors.Mem.FreeBSD,
                       Xmobar.Plugins.Monitors.Net.FreeBSD,
-                      Xmobar.Plugins.Monitors.Swap.FreeBSD
+                      Xmobar.Plugins.Monitors.Swap.FreeBSD,
+                      Xmobar.Plugins.Monitors.Uptime.FreeBSD
     else
        other-modules: Xmobar.Plugins.Monitors.Batt.Linux,
                       Xmobar.Plugins.Monitors.Cpu.Linux,
                       Xmobar.Plugins.Monitors.Mem.Linux,
                       Xmobar.Plugins.Monitors.Net.Linux,
-                      Xmobar.Plugins.Monitors.Swap.Linux
+                      Xmobar.Plugins.Monitors.Swap.Linux,
+                      Xmobar.Plugins.Monitors.Uptime.Linux
 
 executable xmobar
     default-language:   Haskell2010

@@ -1,3 +1,5 @@
+{-#LANGUAGE CPP #-}
+
 ------------------------------------------------------------------------------
 -- |
 -- Module      : Plugins.Monitors.Uptime
@@ -19,22 +21,22 @@ module Xmobar.Plugins.Monitors.Uptime (uptimeConfig, runUptime) where
 
 import Xmobar.Plugins.Monitors.Common
 
-import qualified Data.ByteString.Lazy.Char8 as B
+#if defined(freebsd_HOST_OS)
+import qualified Xmobar.Plugins.Monitors.Uptime.FreeBSD as MU
+#else
+import qualified Xmobar.Plugins.Monitors.Uptime.Linux as MU
+#endif
 
 uptimeConfig :: IO MConfig
 uptimeConfig = mkMConfig "Up <days>d <hours>h <minutes>m"
                          ["days", "hours", "minutes", "seconds"]
-
-readUptime :: IO Float
-readUptime =
-  fmap (read . B.unpack . head . B.words) (B.readFile "/proc/uptime")
 
 secsPerDay :: Integer
 secsPerDay = 24 * 3600
 
 uptime :: Monitor [String]
 uptime = do
-  t <- io readUptime
+  t <- io MU.readUptime
   u <- getConfigValue useSuffix
   let tsecs = floor t
       secs = tsecs `mod` secsPerDay
