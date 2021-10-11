@@ -1,3 +1,5 @@
+{-#LANGUAGE CPP #-}
+{-# LANGUAGE BangPatterns #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Plugins.Monitors.Top
@@ -12,24 +14,27 @@
 --
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE BangPatterns #-}
-
 module Xmobar.Plugins.Monitors.Top (startTop, topMemConfig, runTopMem) where
 
 import Xmobar.Plugins.Monitors.Common
 
-import Control.Exception (SomeException, handle)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.List (sortBy, foldl')
+import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.List (sortBy)
 import Data.Ord (comparing)
-import Data.Time.Clock (UTCTime, getCurrentTime, diffUTCTime)
-import System.Directory (getDirectoryContents)
-import System.FilePath ((</>))
-import System.IO (IOMode(ReadMode), hGetLine, withFile)
-import System.Posix.Unistd (SysVar(ClockTick), getSysVar)
+import Data.Time.Clock (getCurrentTime, diffUTCTime)
 
-import Foreign.C.Types
+import Xmobar.Plugins.Monitors.Top.Common (
+  MemInfo
+  , TimeInfo
+  , Times
+  , TimesRef)
+
+#if defined(freebsd_HOST_OS)
+import qualified Xmobar.Plugins.Monitors.Top.FreeBSD as MT
+#else
+import qualified Xmobar.Plugins.Monitors.Top.Linux as MT
+#endif
+
 
 maxEntries :: Int
 maxEntries = 10
@@ -47,41 +52,6 @@ topConfig = mkMConfig "<both1>"
                                , k <- [ "name", "cpu", "both"
                                       , "mname", "mem", "mboth"]])
 
-foreign import ccall "unistd.h getpagesize"
-  c_getpagesize :: CInt
-
-pageSize :: Float
-pageSize = fromIntegral c_getpagesize / 1024
-
-processes :: IO [FilePath]
-processes = fmap (filter isPid) (getDirectoryContents "/proc")
-  where isPid = (`elem` ['0'..'9']) . head
-
-statWords :: [String] -> [String]
-statWords line@(x:pn:ppn:xs) =
-  if last pn == ')' then line else statWords (x:(pn ++ " " ++ ppn):xs)
-statWords _ = replicate 52 "0"
-
-getProcessData :: FilePath -> IO [String]
-getProcessData pidf =
-  handle ign $ withFile ("/proc" </> pidf </> "stat") ReadMode readWords
-  where readWords = fmap (statWords . words) . hGetLine
-        ign = const (return []) :: SomeException -> IO [String]
-
-memPages :: [String] -> String
-memPages fs = fs!!23
-
-ppid :: [String] -> String
-ppid fs = fs!!3
-
-skip :: [String] -> Bool
-skip fs = length fs < 24 || memPages fs == "0" || ppid fs == "0"
-
-handleProcesses :: ([String] -> a) -> IO [a]
-handleProcesses f =
-  fmap (foldl' (\a p -> if skip p then a else f p : a) [])
-       (processes >>= mapM getProcessData)
-
 showInfo :: String -> String -> Float -> Monitor [String]
 showInfo nm sms mms = do
   mnw <- getConfigValue maxWidth
@@ -94,19 +64,9 @@ showInfo nm sms mms = do
   both <- showWithColors' (rnm ++ " " ++ sms) mms
   return [nm, mstr, both]
 
-processName :: [String] -> String
-processName = drop 1 . init . (!!1)
 
 sortTop :: [(String, Float)] -> [(String, Float)]
 sortTop =  sortBy (flip (comparing snd))
-
-type MemInfo = (String, Float)
-
-meminfo :: [String] -> MemInfo
-meminfo fs = (processName fs, pageSize * parseFloat (fs!!23))
-
-meminfos :: IO [MemInfo]
-meminfos = handleProcesses meminfo
 
 showMemInfo :: Float -> MemInfo -> Monitor [String]
 showMemInfo scale (nm, rss) =
@@ -117,30 +77,8 @@ showMemInfos :: [MemInfo] -> Monitor [[String]]
 showMemInfos ms = mapM (showMemInfo tm) ms
   where tm = sum (map snd ms)
 
-runTopMem :: [String] -> Monitor String
-runTopMem _ = do
-  mis <- io meminfos
-  pstr <- showMemInfos (sortTop mis)
-  parseTemplate $ concat pstr
-
-type Pid = Int
-type TimeInfo = (String, Float)
-type TimeEntry = (Pid, TimeInfo)
-type Times = [TimeEntry]
-type TimesRef = IORef (Times, UTCTime)
-
-timeMemEntry :: [String] -> (TimeEntry, MemInfo)
-timeMemEntry fs = ((p, (n, t)), (n, r))
-  where p = parseInt (head fs)
-        n = processName fs
-        t = parseFloat (fs!!13) + parseFloat (fs!!14)
-        (_, r) = meminfo fs
-
-timeMemEntries :: IO [(TimeEntry, MemInfo)]
-timeMemEntries = handleProcesses timeMemEntry
-
 timeMemInfos :: IO (Times, [MemInfo], Int)
-timeMemInfos = fmap res timeMemEntries
+timeMemInfos = fmap res MT.timeMemEntries
   where res x = (sortBy (comparing fst) $ map fst x, map snd x, length x)
 
 combine :: Times -> Times -> Times
@@ -164,7 +102,7 @@ topProcesses tref scale = do
   c1 <- getCurrentTime
   let scx = realToFrac (diffUTCTime c1 c0) * scale
       !scx' = if scx > 0 then scx else scale
-      nts = map (\(_, (nm, t)) -> (nm, min 100 (t / scx'))) (combine t0 t1)
+      nts = map (\(_, (nm, t)) -> (nm, t / scx')) (combine t0 t1)
       !t1' = take' (length t1) t1
       !nts' = take' maxEntries (sortTop nts)
       !mis' = take' maxEntries (sortTop mis)
@@ -178,6 +116,12 @@ showTimeInfo (n, t) =
 showTimeInfos :: [TimeInfo] -> Monitor [[String]]
 showTimeInfos = mapM showTimeInfo
 
+runTopMem :: [String] -> Monitor String
+runTopMem _ = do
+  mis <- io MT.meminfos
+  pstr <- showMemInfos (sortTop mis)
+  parseTemplate $ concat pstr
+
 runTop :: TimesRef -> Float -> [String] -> Monitor String
 runTop tref scale _ = do
   (no, ps, ms) <- io $ topProcesses tref scale
@@ -187,9 +131,8 @@ runTop tref scale _ = do
 
 startTop :: [String] -> Int -> (String -> IO ()) -> IO ()
 startTop a r cb = do
-  cr <- getSysVar ClockTick
   c <- getCurrentTime
   tref <- newIORef ([], c)
-  let scale = fromIntegral cr / 100
+  scale <- MT.scale
   _ <- topProcesses tref scale
   runM a topConfig (runTop tref scale) r cb

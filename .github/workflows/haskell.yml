@@ -36,6 +36,7 @@ jobs:
 
     - name: Install packages
       run: |
+        sudo apt-get update
         sudo apt-get install -y xorg-dev
         sudo apt-get install -y libasound2-dev libxpm-dev libmpd-dev libxrandr-dev
         sudo apt-get install -y happy c2hs hspec-discover

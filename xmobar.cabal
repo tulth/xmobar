@@ -168,6 +168,7 @@ library
                    Xmobar.Plugins.Monitors.Thermal,
                    Xmobar.Plugins.Monitors.ThermalZone,
                    Xmobar.Plugins.Monitors.Top,
+                   Xmobar.Plugins.Monitors.Top.Common,
                    Xmobar.Plugins.Monitors.Uptime,
                    Xmobar.Plugins.Monitors.Bright,
                    Xmobar.Plugins.Monitors.CatInt
@@ -294,12 +295,14 @@ library
 
     if os(freebsd)
        -- enables freebsd specific code
+       extra-libraries: procstat
        build-depends: bsd-sysctl
        other-modules: Xmobar.Plugins.Monitors.Batt.FreeBSD,
                       Xmobar.Plugins.Monitors.Cpu.FreeBSD,
                       Xmobar.Plugins.Monitors.Mem.FreeBSD,
                       Xmobar.Plugins.Monitors.Net.FreeBSD,
                       Xmobar.Plugins.Monitors.Swap.FreeBSD,
+                      Xmobar.Plugins.Monitors.Top.FreeBSD,
                       Xmobar.Plugins.Monitors.Uptime.FreeBSD
     else
        other-modules: Xmobar.Plugins.Monitors.Batt.Linux,
@@ -307,6 +310,7 @@ library
                       Xmobar.Plugins.Monitors.Mem.Linux,
                       Xmobar.Plugins.Monitors.Net.Linux,
                       Xmobar.Plugins.Monitors.Swap.Linux,
+                      Xmobar.Plugins.Monitors.Top.Linux,
                       Xmobar.Plugins.Monitors.Uptime.Linux
 
 executable xmobar
