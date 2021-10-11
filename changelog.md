@@ -4,6 +4,7 @@ _New features_
 
   - New plugin: `QueueReader` (Guy Gastineau).
   - `Mem` monitor now supported in FreeBSD (Michal Zielonka).
+  -  Network monitors now supported in FreeBSD (Michal Zielonka).
 
 ## Version 0.39 (Aug, 2021)
 
