@@ -296,6 +296,7 @@ library
     if os(freebsd)
        -- enables freebsd specific code
        extra-libraries: procstat
+                      , kvm
        build-depends: bsd-sysctl
        other-modules: Xmobar.Plugins.Monitors.Batt.FreeBSD,
                       Xmobar.Plugins.Monitors.Cpu.FreeBSD,
