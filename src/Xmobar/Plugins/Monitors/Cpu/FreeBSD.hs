@@ -39,11 +39,16 @@ parseCpu cref = do
         intr = diff !! 3
         idle = diff !! 4
         total = user + nice + system + intr + idle
+        cpuUserPerc = if total > 0 then user/total else 0
+        cpuNicePerc = if total > 0 then nice/total else 0
+        cpuSystemPerc = if total > 0 then (system+intr)/total else 0
+        cpuIdlePerc = if total > 0 then idle/total else 0
+
     return CpuData
-      { cpuUser = user/total
-      , cpuNice = nice/total
-      , cpuSystem = (system+intr)/total
-      , cpuIdle = idle/total
+      { cpuUser = cpuUserPerc
+      , cpuNice = cpuNicePerc
+      , cpuSystem = cpuSystemPerc
+      , cpuIdle = cpuIdlePerc
       , cpuIowait = 0
-      , cpuTotal = user/total
+      , cpuTotal = cpuUserPerc+cpuSystemPerc
       }
