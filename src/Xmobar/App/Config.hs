@@ -60,6 +60,8 @@ defaultConfig =
            , commands = [ Run $ Date "%a %b %_d %Y * %H:%M:%S" "theDate" 10
                         , Run StdinReader]
            , sepChar = "%"
+           , dynLPad = 0
+           , dynRPad = 0
            , alignSep = "}{"
            , template = "%StdinReader% }{ " ++
                         "<fc=#00FF00>%uname%</fc> * <fc=#FF0000>%theDate%</fc>"

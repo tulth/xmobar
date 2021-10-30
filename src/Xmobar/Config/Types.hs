@@ -61,6 +61,8 @@ data Config =
            , sepChar :: String      -- ^ The character to be used for indicating
                                     --   commands in the output template
                                     --   (default '%')
+           , dynLPad :: Int         -- ^ Dynamic Padding using <lpad=X>
+           , dynRPad :: Int         -- ^ Dynamic Padding using <rpad=X>
            , alignSep :: String     -- ^ Separators for left, center and
                                     --   right text alignment
            , template :: String     -- ^ The output template

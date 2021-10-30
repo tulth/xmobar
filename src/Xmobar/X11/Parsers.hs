@@ -26,13 +26,14 @@ import Data.Int (Int32)
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
 import Graphics.X11.Types (Button)
+import Graphics.X11.Xlib (Dimension)
 import Foreign.C.Types (CInt)
 
-data Widget = Icon String | Text String
+data Widget = Icon String | Text String | Pad (Dimension, Dimension) deriving Show
 
-data BoxOffset = BoxOffset Align Int32 deriving Eq 
+data BoxOffset = BoxOffset Align Int32 deriving (Eq, Show)
 -- margins: Top, Right, Bottom, Left
-data BoxMargins = BoxMargins Int32 Int32 Int32 Int32 deriving Eq
+data BoxMargins = BoxMargins Int32 Int32 Int32 Int32 deriving (Eq, Show)
 data BoxBorder = BBTop
                | BBBottom
                | BBVBoth
@@ -40,14 +41,14 @@ data BoxBorder = BBTop
                | BBRight
                | BBHBoth
                | BBFull
-                 deriving ( Read, Eq )
-data Box = Box BoxBorder BoxOffset CInt String BoxMargins deriving Eq
+                 deriving ( Read, Eq, Show )
+data Box = Box BoxBorder BoxOffset CInt String BoxMargins deriving (Eq, Show)
 data TextRenderInfo =
     TextRenderInfo { tColorsString   :: String
                    , tBgTopOffset    :: Int32
                    , tBgBottomOffset :: Int32
                    , tBoxes          :: [Box]
-                   }
+                   } deriving Show
 type FontIndex   = Int
 
 -- | Runs the string parser
@@ -68,6 +69,8 @@ allParsers :: TextRenderInfo
            -> Parser [(Widget, TextRenderInfo, FontIndex, Maybe [Action])]
 allParsers c f a =  textParser c f a
                 <|> try (iconParser c f a)
+                <|> try (lPadParser c f a)
+                <|> try (rPadParser c f a)
                 <|> try (rawParser c f a)
                 <|> try (actionParser c f a)
                 <|> try (fontParser c a)
@@ -91,6 +94,8 @@ textParser c f a = do s <- many1 $
                                      try (string "action=") <|>
                                      try (string "/action>") <|>
                                      try (string "icon=") <|>
+                                     try (string "lpad=") <|>
+                                     try (string "rpad=") <|>
                                      try (string "raw=") <|>
                                      try (string "/fn>") <|>
                                      try (string "/box>") <|>
@@ -132,6 +137,20 @@ iconParser c f a = do
   string "<icon="
   i <- manyTill (noneOf ">") (try (string "/>"))
   return [(Icon i, c, f, a)]
+
+rPadParser :: TextRenderInfo -> FontIndex -> Maybe [Action]
+              -> Parser [(Widget, TextRenderInfo, FontIndex, Maybe [Action])]
+rPadParser c f a = do
+  string "<rpad="
+  pVal <- manyTill (noneOf ">") (try (string "/>"))
+  return [(Pad (0,fromMaybe 0 $ readMaybe pVal), c, f, a)]
+
+lPadParser :: TextRenderInfo -> FontIndex -> Maybe [Action]
+              -> Parser [(Widget, TextRenderInfo, FontIndex, Maybe [Action])]
+lPadParser c f a = do
+  string "<lpad="
+  pVal <- manyTill (noneOf ">") (try (string "/>"))
+  return [(Pad (fromMaybe 0 $ readMaybe pVal, 0), c, f, a)]
 
 actionParser :: TextRenderInfo -> FontIndex -> Maybe [Action]
                 -> Parser [(Widget, TextRenderInfo, FontIndex, Maybe [Action])]

@@ -67,11 +67,11 @@ parseConfig defaultConfig =
               <|?> pBdColor <|?> pBdWidth <|?> pAlpha <|?> pHideOnStart
               <|?> pAllDesktops <|?> pOverrideRedirect <|?> pPickBroadest
               <|?> pLowerOnStart <|?> pPersistent <|?> pIconRoot
-              <|?> pCommands <|?> pSepChar <|?> pAlignSep <|?> pTemplate
+              <|?> pCommands <|?> pSepChar <|?> pDynLPad <|?> pDynRPad <|?> pAlignSep <|?> pTemplate
               <|?> pVerbose
 
       fields    = [ "font", "additionalFonts","bgColor", "fgColor"
-                  , "wmClass", "wmName", "sepChar"
+                  , "wmClass", "wmName", "sepChar", "dynLPad", "dynRPad"
                   , "alignSep" , "border", "borderColor" ,"template"
                   , "position" , "textOffset", "textOffsets", "iconOffset"
                   , "allDesktops", "overrideRedirect", "pickBroadest"
@@ -87,6 +87,8 @@ parseConfig defaultConfig =
       pFgColor = strField fgColor "fgColor"
       pBdColor = strField borderColor "borderColor"
       pSepChar = strField sepChar "sepChar"
+      pDynLPad = readField dynLPad "dynLPad"
+      pDynRPad = readField dynRPad "dynRPad"
       pAlignSep = strField alignSep "alignSep"
       pTemplate = strField template "template"
 

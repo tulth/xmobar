@@ -77,6 +77,16 @@ fi = fromIntegral
 
 setPosition :: Config -> XPosition -> [Rectangle] -> Dimension -> Rectangle
 setPosition c p rs ht =
+  Rectangle (rect_x rPrePad + lOffset)
+            (rect_y rPrePad)
+            (rect_width rPrePad - padLessenWidth)
+            (rect_height rPrePad)
+  where rPrePad = setPosition' c p rs ht
+        lOffset = fi $ dynLPad c
+        padLessenWidth = fi $ dynLPad c + dynRPad c
+
+setPosition' :: Config -> XPosition -> [Rectangle] -> Dimension -> Rectangle
+setPosition' c p rs ht =
   case p' of
     Top -> Rectangle rx ry rw h
     TopP l r -> Rectangle (rx + fi l) ry (rw - fi l - fi r) h

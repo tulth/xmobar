@@ -38,8 +38,9 @@ import Control.Concurrent.STM
 import Control.Exception (bracket_, handle, SomeException(..))
 import Data.Bits
 import Data.Map hiding (foldr, map, filter)
-import Data.Maybe (fromJust, isJust)
+import Data.Maybe (fromJust, isJust, mapMaybe)
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Bifunctor
 
 import Xmobar.System.Signal
 import Xmobar.Config.Types
@@ -164,8 +165,13 @@ eventLoop tv xc@(XConf d r w fs vos is cfg) as signal = do
             xc' <- updateCache d w is (iconRoot cfg) str >>=
                      \c -> return xc { iconS = c }
             as' <- updateActions xc r str
-            runX xc' $ drawInWin r str
-            eventLoop tv xc' as' signal
+            let possiblePads = extractDynPad str
+                cfg' = maybe cfg (\pads -> cfg { dynLPad=fst pads
+                                               , dynRPad=snd pads}) possiblePads
+                xc'' = xc' {config=cfg'}
+            r' <- repositionWin d w (NE.head fs) cfg'
+            runX xc'' $ drawInWin r' str
+            eventLoop tv xc'' as' signal
 
          Reposition ->
             reposWindow cfg
@@ -265,6 +271,7 @@ updateActions conf (Rectangle _ _ wid _) ~[left,center,right] = do
       iconW i = maybe 0 Bitmap.width (lookup i $ iconS conf)
       getCoords (Text s,_,i,a) = textWidth d (safeIndex fs i) s >>= \tw -> return (a, 0, fi tw)
       getCoords (Icon s,_,_,a) = return (a, 0, fi $ iconW s)
+      getCoords (Pad _,_,_,a) = return (a, 0, 0)
       partCoord off xs = map (\(a, x, x') -> (fromJust a, x, x')) $
                          filter (\(a, _,_) -> isJust a) $
                          scanl (\(_,_,x') (a,_,w') -> (a, x', x' + w'))
@@ -280,3 +287,13 @@ updateActions conf (Rectangle _ _ wid _) ~[left,center,right] = do
   fmap concat $ mapM (\(a,xs) ->
                        (\xs' -> partCoord (offset a xs') xs') <$> strLn xs) $
                      zip [L,C,R] [left,center,right]
+
+extractDynPad :: [[(Widget, TextRenderInfo, Int, Maybe [Action])]] -> Maybe (Int, Int)
+extractDynPad str =
+  padSum padList
+  where padList = Data.Maybe.mapMaybe getPads $ join str :: [(Int, Int)]
+        getPads (Pad lr,_,_,_) = Just (Data.Bifunctor.bimap fi fi lr)
+        getPads (_,_,_,_) = Nothing
+        padSum [] = Nothing
+        padSum pl = Just(sum $ map fst padList, sum $ map snd pl)
+
