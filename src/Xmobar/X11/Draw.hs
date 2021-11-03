@@ -60,6 +60,7 @@ drawInWin wr@(Rectangle _ _ wid ht) ~[left,center,right] = do
       getWidth (Text s,cl,i,_) =
         textWidth d (safeIndex fs i) s >>= \tw -> return (Text s,cl,i,fi tw)
       getWidth (Icon s,cl,i,_) = return (Icon s,cl,i,fi $ iconW s)
+      getWidth (Hspace p,cl,i,_) = return (Hspace p,cl,i,fi p)
 
   p <- liftIO $ createPixmap d w wid ht
                          (defaultDepthOfScreen (defaultScreenOfDisplay d))
@@ -102,6 +103,7 @@ verticalOffset ht (Text t) fontst voffs _
 verticalOffset ht (Icon _) _ _ conf
   | iconOffset conf > -1 = return $ fi (iconOffset conf)
   | otherwise = return $ fi (ht `div` 2) - 1
+verticalOffset _ (Hspace _) _ voffs _ = return $ fi voffs
 
 printString :: Display -> Drawable -> XFont -> GC -> String -> String
             -> Position -> Position -> Position -> Position -> String -> Int -> IO ()
@@ -160,6 +162,7 @@ printStrings dr gc fontlist voffs offs a boxes sl@((s,c,i,l):xs) = do
     (Icon p) -> liftIO $ maybe (return ())
                            (B.drawBitmap d dr gc fc bc offset valign)
                            (lookup p (iconS r))
+    (Hspace _) -> liftIO $ return ()
   let triBoxes = tBoxes c
       dropBoxes = filter (\(_,b) -> b `notElem` triBoxes) boxes
       boxes' = map (\((x1,_),b) -> ((x1, offset + l), b)) (filter (\(_,b) -> b `elem` triBoxes) boxes)

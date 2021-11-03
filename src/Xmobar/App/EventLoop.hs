@@ -265,6 +265,7 @@ updateActions conf (Rectangle _ _ wid _) ~[left,center,right] = do
       iconW i = maybe 0 Bitmap.width (lookup i $ iconS conf)
       getCoords (Text s,_,i,a) = textWidth d (safeIndex fs i) s >>= \tw -> return (a, 0, fi tw)
       getCoords (Icon s,_,_,a) = return (a, 0, fi $ iconW s)
+      getCoords (Hspace w,_,_,a) = return (a, 0, fi w)
       partCoord off xs = map (\(a, x, x') -> (fromJust a, x, x')) $
                          filter (\(a, _,_) -> isJust a) $
                          scanl (\(_,_,x') (a,_,w') -> (a, x', x' + w'))
