@@ -215,6 +215,10 @@ The syntax for the output template is as follows:
 - =<fn=1>string</fn>= will print =string= with the first font from
   =additionalFonts=. The index =0= corresponds to the standard font.
 
+- =<hspace=X/>= will insert a blank horizontal space of =X= pixels.
+  For example, to add a blank horizontal space of 123 pixels,
+  =<hspace=123/>= may be used.
+
 - =<icon=/path/to/icon.xbm/>= will insert the given bitmap. XPM image
   format is also supported when compiled with the =with_xpm= flag.
 
